@@ -3,14 +3,15 @@ import { Sword } from 'lucide-react';
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-white">
+    <div className="flex flex-col items-center justify-center p-4 text-white py-20">
       <div className="flex flex-col items-center gap-6 text-center">
         <div className="flex items-center gap-3">
           <Sword className="h-12 w-12 text-blue-500" />
-          <h1 className="text-4xl font-bold tracking-tight">Albion Tracker </h1>
+          <h1 className="text-4xl font-bold tracking-tight">Albion Tracker</h1>
         </div>
-          {/* <h2 className="text-2xl font-bold tracking-tight">LITTLEGANKERS Melhor guilda </h2>
-          <h2 className="text-2xl font-bold tracking-tight">SACA É BUXA</h2> */}
+        
+        {/* <h2 className="text-2xl font-bold tracking-tight">LITTLEGANKERS Melhor guilda </h2>
+            <h2 className="text-2xl font-bold tracking-tight">SACA É BUXA</h2> */}
 
         <p className="max-w-md text-gray-400">
           Busque por um jogador para ver suas últimas kills, deaths e estatísticas de PvP.
@@ -33,6 +34,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
