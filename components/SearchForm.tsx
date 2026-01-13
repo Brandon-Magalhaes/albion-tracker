@@ -92,22 +92,21 @@ export default function SearchForm() {
           <div className="text-xs text-gray-500 px-4 py-2 font-semibold bg-gray-900/50">Recentes</div>
           <ul>
             {history.map((term) => (
-              <li key={term}>
-                <button
+              <li key={term} className="flex items-center justify-between hover:bg-gray-700 group transition-colors cursor-pointer">
+                <div
                   onClick={() => handleHistoryClick(term)}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-700 flex items-center justify-between group transition-colors"
+                  className="flex-1 flex items-center gap-3 px-4 py-3 text-gray-300 group-hover:text-white"
                 >
-                  <div className="flex items-center gap-3 text-gray-300 group-hover:text-white">
-                    <History size={16} className="text-gray-500 group-hover:text-blue-400" />
-                    <span>{term}</span>
-                  </div>
-                  <div
-                    onClick={(e) => removeFromHistory(e, term)}
-                    className="p-1 rounded-full hover:bg-gray-600 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                    title="Remover do histórico"
-                  >
-                    <X size={14} />
-                  </div>
+                  <History size={16} className="text-gray-500 group-hover:text-blue-400" />
+                  <span>{term}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => removeFromHistory(e, term)}
+                  className="mr-3 p-1.5 rounded-full hover:bg-gray-600 text-gray-500 hover:text-red-400 transition-all"
+                  title="Remover do histórico"
+                >
+                  <X size={16} />
                 </button>
               </li>
             ))}

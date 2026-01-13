@@ -2,13 +2,24 @@ import { NextResponse } from 'next/server';
 import { getCached, setCached } from '@/lib/cache';
 import { SearchResult, Event } from '@/types/albion';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const ALBION_API_BASE = 'https://gameinfo.albiononline.com/api/gameinfo';
 
 async function fetchWithTimeout(url: string) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000); 
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    // Ensure no caching for fresh data
+    const res = await fetch(url, { 
+      signal: controller.signal,
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      }
+    });
     clearTimeout(timeoutId);
     return res;
   } catch (error) {
@@ -27,7 +38,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Missing query param player' }, { status: 400 });
   }
 
-  const cacheKey = `events_v3_${player}_${limit}_${offset}`;
+  // We keep a short in-memory cache to prevent spamming the API on rapid reloads,
+  // but the upstream fetch MUST be fresh.
+  const cacheKey = `events_v6_${player}_${limit}_${offset}`;
   
   // Try cache first
   const cached = getCached<Event[]>(cacheKey);
@@ -42,7 +55,6 @@ export async function GET(request: Request) {
 
   try {
     // 1. Resolve Name -> ID
-    // We assume the player name is exact or close enough for the first result
     const searchRes = await fetchWithTimeout(`${ALBION_API_BASE}/search?q=${encodeURIComponent(player)}`);
     if (!searchRes.ok) throw new Error('Search failed');
     const searchData: SearchResult = await searchRes.json();
@@ -55,12 +67,17 @@ export async function GET(request: Request) {
 
     const playerId = foundPlayer.Id;
 
-    // 2. Fetch Deaths & Top Kills (Parallel)
-    // The generic /events endpoint does not reliably filter by player name.
-    // We must use specific endpoints to guarantee accurate history.
-    const [deathsResult, topKillsResult] = await Promise.allSettled([
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths`),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/topkills`)
+    // 2. Fetch Deaths, Recent Kills, Top Kills, and Solo Kills (Parallel)
+    // - deaths: Recent deaths (chronological)
+    // - kills: Recent kills (chronological, regardless of fame) - CRITICAL for recent history
+    // - topkills: High fame kills (fame sorted)
+    // - solokills: Recent 1v1 kills (chronological)
+    // We fetch a larger pool to ensure coverage
+    const [deathsResult, killsResult, topKillsResult, soloKillsResult] = await Promise.allSettled([
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths?limit=50`),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/kills?limit=50`),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/topkills?limit=50`),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/solokills?limit=50`)
     ]);
 
     const events: Event[] = [];
@@ -70,14 +87,29 @@ export async function GET(request: Request) {
       if (Array.isArray(deaths)) events.push(...deaths);
     }
 
+    if (killsResult.status === 'fulfilled' && killsResult.value.ok) {
+      const recentKills = await killsResult.value.json();
+      if (Array.isArray(recentKills)) events.push(...recentKills);
+    }
+
     if (topKillsResult.status === 'fulfilled' && topKillsResult.value.ok) {
       const kills = await topKillsResult.value.json();
       if (Array.isArray(kills)) events.push(...kills);
     }
 
+    if (soloKillsResult.status === 'fulfilled' && soloKillsResult.value.ok) {
+      const solo = await soloKillsResult.value.json();
+      if (Array.isArray(solo)) events.push(...solo);
+    }
+
     // 3. Deduplicate (by EventId) & Sort
     const uniqueEvents = Array.from(new Map(events.map(item => [item.EventId, item])).values());
     uniqueEvents.sort((a, b) => new Date(b.TimeStamp).getTime() - new Date(a.TimeStamp).getTime());
+
+    // Debug logging to verify fresh data
+    if (uniqueEvents.length > 0) {
+      console.log(`[API] Fetched ${uniqueEvents.length} events for ${player}. Latest: ${uniqueEvents[0].TimeStamp}`);
+    }
 
     // 4. Paginate
     // Note: Since we are merging two sources, offset/limit is applied in memory after fetching recent history

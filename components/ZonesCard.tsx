@@ -6,13 +6,29 @@ interface ZonesCardProps {
 }
 
 export default function ZonesCard({ events }: ZonesCardProps) {
+  // Check if ANY event has Location or KillArea
+  const hasLocationData = events.some(e => e.Location || e.KillArea);
+
+  if (!hasLocationData) {
+    return (
+      <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center py-10">
+        <MapPin className="mx-auto text-gray-600 mb-3" size={32} />
+        <p className="text-gray-400">A API não retornou Location nem KillArea para estes eventos.</p>
+        <p className="text-sm text-gray-600 mt-1">Não é possível calcular zonas no momento.</p>
+      </div>
+    );
+  }
+
   const zoneCounts: Record<string, number> = {};
 
   events.forEach(e => {
-    // Some events might not have location or it might be null
-    // The type says optional, but API sometimes returns empty string or null
-    const loc = e.Location || 'Desconhecido';
-    zoneCounts[loc] = (zoneCounts[loc] || 0) + 1;
+    // Prefer Location, fallback to KillArea
+    const zone = e.Location || e.KillArea;
+    if (zone) {
+      // Sometimes KillArea might be "OPEN_WORLD" or similar generic names, but it's better than nothing.
+      // We can format it if needed, but for now raw string is fine.
+      zoneCounts[zone] = (zoneCounts[zone] || 0) + 1;
+    }
   });
 
   const topZones = Object.entries(zoneCounts)

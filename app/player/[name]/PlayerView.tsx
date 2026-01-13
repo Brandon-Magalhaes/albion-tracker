@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Event } from '@/types/albion';
 import { Loader2 } from 'lucide-react';
 import PlayerHeader from '@/components/PlayerHeader';
@@ -16,6 +16,7 @@ export default function PlayerView({ name }: { name: string }) {
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'events' | 'builds' | 'zones'>('events');
+  const [hasMore, setHasMore] = useState(true);
   const LIMIT = 20;
 
   useEffect(() => {
@@ -25,11 +26,23 @@ export default function PlayerView({ name }: { name: string }) {
       try {
         const res = await fetch(`/api/albion/events?player=${encodeURIComponent(name)}&limit=${LIMIT}&offset=${offset}`);
         if (!res.ok) {
-          if (res.status === 404) throw new Error('Jogador não encontrado (ou sem eventos recentes).');
-          throw new Error('Falha ao carregar eventos.');
+          if (res.status === 404 && offset === 0) throw new Error('Jogador não encontrado (ou sem eventos recentes).');
+          if (res.status !== 404) throw new Error('Falha ao carregar eventos.');
         }
+        
         const data = await res.json();
-        setEvents(data);
+        
+        if (Array.isArray(data)) {
+          if (data.length < LIMIT) setHasMore(false);
+          
+          setEvents(prev => {
+            // Deduplicate logic when appending
+            if (offset === 0) return data;
+            const existingIds = new Set(prev.map(e => e.EventId));
+            const newEvents = data.filter(e => !existingIds.has(e.EventId));
+            return [...prev, ...newEvents];
+          });
+        }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Erro desconhecido.');
       } finally {
@@ -39,6 +52,14 @@ export default function PlayerView({ name }: { name: string }) {
 
     fetchEvents();
   }, [name, offset]);
+
+  // Memoized stats to avoid recalculation on every render
+  // Although React handles this efficiently, it's safer for heavy lists
+  const memoizedEvents = useMemo(() => events, [events]);
+
+  const handleLoadMore = () => {
+    setOffset(prev => prev + LIMIT);
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
@@ -73,21 +94,20 @@ export default function PlayerView({ name }: { name: string }) {
             <div className="min-h-[400px]">
               {activeTab === 'events' && (
                 <EventsTab 
-                  events={events} 
+                  events={memoizedEvents} 
                   currentPlayerName={name} 
                   loading={loading}
-                  offset={offset}
-                  setOffset={setOffset}
-                  limit={LIMIT}
+                  onLoadMore={handleLoadMore}
+                  hasMore={events.length >= LIMIT}
                 />
               )}
 
               {activeTab === 'builds' && (
-                <BuildsTab events={events} playerName={name} />
+                <BuildsTab events={memoizedEvents} playerName={name} />
               )}
 
               {activeTab === 'zones' && (
-                <ZonesTab events={events} />
+                <ZonesTab events={memoizedEvents} />
               )}
             </div>
           </>
