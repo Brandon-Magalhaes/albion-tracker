@@ -19,7 +19,7 @@ export default function ItemIcon({
   quality = 1, 
   count = 1, 
   alt = 'Item', 
-  size = 48,
+  size = 96,
   showCount = true 
 }: ItemIconProps) {
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,9 @@ export default function ItemIcon({
         alt={alt}
         width={size}
         height={size}
-        className={`object-contain transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
+        // Force width/height style to ensure rendering size matches prop
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        className={`transition-opacity duration-300 ${loading ? 'opacity-0' : 'opacity-100'}`}
         onLoad={() => setLoading(false)}
         onError={() => {
           setLoading(false);

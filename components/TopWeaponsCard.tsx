@@ -31,8 +31,8 @@ export default function TopWeaponsCard({ events, playerName }: TopWeaponsCardPro
         {topWeapons.map(([type, count]) => (
           <div key={type} className="flex items-center justify-between bg-gray-900/50 p-3 rounded-lg border border-gray-800">
             <div className="flex items-center gap-4">
-              <div className="relative h-12 w-12 bg-gray-800 rounded">
-                 <ItemIcon type={type} size={48} alt={type} />
+              <div className="relative h-20 w-20 bg-gray-800 rounded flex items-center justify-center">
+                 <ItemIcon type={type} size={80} alt={type} />
               </div>
               <div className="flex flex-col">
                 <span className="font-medium text-white text-sm">{type.replace(/_/g, ' ')}</span>

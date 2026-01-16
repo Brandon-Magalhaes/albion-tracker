@@ -40,8 +40,8 @@ export default function TopSetsCard({ events, playerName }: TopSetsCardProps) {
           <div key={idx} className="flex items-center justify-between bg-gray-900/50 p-3 rounded-lg border border-gray-800">
             <div className="flex gap-2">
               {set.items.map((itemType, i) => (
-                <div key={i} className="relative h-10 w-10 bg-gray-800 rounded border border-gray-700 flex items-center justify-center">
-                  <ItemIcon type={itemType} size={40} alt={itemType || 'Empty'} showCount={false} />
+                <div key={i} className="relative h-16 w-16 bg-gray-800 rounded border border-gray-700 flex items-center justify-center">
+                  <ItemIcon type={itemType} size={64} alt={itemType || 'Empty'} showCount={false} />
                 </div>
               ))}
             </div>

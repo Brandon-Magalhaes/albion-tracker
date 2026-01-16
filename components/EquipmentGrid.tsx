@@ -3,13 +3,13 @@ import ItemIcon from './ItemIcon';
 
 const ItemSlot = ({ item, slot }: { item: EquipmentItem | null; slot: string }) => {
   return (
-    <div className="relative h-12 w-12 rounded bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden" title={slot}>
+    <div className="relative h-24 w-24 rounded bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden" title={slot}>
       <ItemIcon 
         type={item?.Type} 
         quality={item?.Quality} 
         count={item?.Count} 
         alt={slot} 
-        size={48} 
+        size={96} 
       />
     </div>
   );

@@ -41,6 +41,8 @@ export default function SearchForm() {
     const newHistory = [term, ...history.filter(h => h !== term)].slice(0, 5);
     setHistory(newHistory);
     localStorage.setItem('search_history', JSON.stringify(newHistory));
+    // Dispatch event for other components to know history changed
+    window.dispatchEvent(new Event('search_history_updated'));
   };
 
   const removeFromHistory = (e: React.MouseEvent, term: string) => {
@@ -48,6 +50,14 @@ export default function SearchForm() {
     const newHistory = history.filter(h => h !== term);
     setHistory(newHistory);
     localStorage.setItem('search_history', JSON.stringify(newHistory));
+    window.dispatchEvent(new Event('search_history_updated'));
+  };
+
+  const clearHistory = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHistory([]);
+    localStorage.removeItem('search_history');
+    window.dispatchEvent(new Event('search_history_updated'));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -89,7 +99,15 @@ export default function SearchForm() {
       {/* History Dropdown */}
       {showHistory && history.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-hidden z-20">
-          <div className="text-xs text-gray-500 px-4 py-2 font-semibold bg-gray-900/50">Recentes</div>
+          <div className="flex items-center justify-between px-4 py-2 bg-gray-900/50">
+             <span className="text-xs text-gray-500 font-semibold">Recentes</span>
+             <button 
+                onClick={clearHistory}
+                className="text-[10px] text-red-400 hover:text-red-300 transition-colors uppercase font-bold tracking-wider"
+             >
+                Limpar
+             </button>
+          </div>
           <ul>
             {history.map((term) => (
               <li key={term} className="flex items-center justify-between hover:bg-gray-700 group transition-colors cursor-pointer">
