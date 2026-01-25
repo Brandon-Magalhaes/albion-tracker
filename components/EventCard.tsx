@@ -33,32 +33,37 @@ export default function EventCard({ event, playerName }: EventCardProps) {
       </div>
 
       {/* Players */}
-      <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="flex-1 flex flex-col md:flex-row items-center justify-between gap-4 w-full">
         {/* Killer */}
-        <div className="flex flex-col items-center md:items-start flex-1">
+        <div className="flex flex-col items-center md:items-start flex-1 w-full md:w-auto">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-sm text-gray-500">Killer</span>
-            <Link href={`/player/${event.Killer.Name}`} className="font-bold text-white hover:text-blue-400">
+            <Link href={`/player/${event.Killer.Name}`} className="font-bold text-white hover:text-blue-400 truncate max-w-[150px] md:max-w-none">
               {event.Killer.Name}
             </Link>
-            <span className="text-xs text-gray-500">({event.Killer.AverageItemPower.toFixed(0)} IP)</span>
+            <span className="text-xs text-gray-500 whitespace-nowrap">({event.Killer.AverageItemPower.toFixed(0)} IP)</span>
           </div>
-          <EquipmentGrid equipment={event.Killer.Equipment} />
+          {/* Responsive container for EquipmentGrid to allow scaling on small screens if needed */}
+          <div className="transform scale-75 sm:scale-90 md:scale-100 origin-top md:origin-top-left transition-transform">
+            <EquipmentGrid equipment={event.Killer.Equipment} size={96} />
+          </div>
         </div>
 
         {/* VS Badge */}
-        <div className="text-gray-600 font-bold text-xl px-2">VS</div>
+        <div className="text-gray-600 font-bold text-xl px-2 my-2 md:my-0">VS</div>
 
         {/* Victim */}
-        <div className="flex flex-col items-center md:items-end flex-1">
+        <div className="flex flex-col items-center md:items-end flex-1 w-full md:w-auto">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-gray-500">({event.Victim.AverageItemPower.toFixed(0)} IP)</span>
-            <Link href={`/player/${event.Victim.Name}`} className="font-bold text-white hover:text-blue-400">
+            <span className="text-xs text-gray-500 whitespace-nowrap">({event.Victim.AverageItemPower.toFixed(0)} IP)</span>
+            <Link href={`/player/${event.Victim.Name}`} className="font-bold text-white hover:text-blue-400 truncate max-w-[150px] md:max-w-none text-right">
               {event.Victim.Name}
             </Link>
             <span className="text-sm text-gray-500">Victim</span>
           </div>
-          <EquipmentGrid equipment={event.Victim.Equipment} />
+          <div className="transform scale-75 sm:scale-90 md:scale-100 origin-top md:origin-top-right transition-transform">
+            <EquipmentGrid equipment={event.Victim.Equipment} size={96} />
+          </div>
         </div>
       </div>
 

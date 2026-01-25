@@ -66,40 +66,46 @@ export async function GET(request: Request) {
     }
 
     const playerId = foundPlayer.Id;
+    const guildId = foundPlayer.GuildId;
 
-    // 2. Fetch Deaths, Recent Kills, Top Kills, and Solo Kills (Parallel)
-    // - deaths: Recent deaths (chronological)
-    // - kills: Recent kills (chronological, regardless of fame) - CRITICAL for recent history
-    // - topkills: High fame kills (fame sorted)
-    // - solokills: Recent 1v1 kills (chronological)
-    // We fetch a larger pool to ensure coverage
-    const [deathsResult, killsResult, topKillsResult, soloKillsResult] = await Promise.allSettled([
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths?limit=50`),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/kills?limit=50`),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/topkills?limit=50`),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/solokills?limit=50`)
-    ]);
+    // Fetch in parallel
+    // We combine standard player endpoints (limited to 10) with Guild Events (if available) to get more history.
+    
+    const promises: Promise<any>[] = [
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/kills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/topkills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/solokills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => [])
+    ];
 
+    if (guildId) {
+      // Fetch recent guild events (limit 100 to maximize chance of finding player events)
+      promises.push(
+        fetchWithTimeout(`${ALBION_API_BASE}/events?guildId=${guildId}&limit=100`)
+          .then(r => r.ok ? r.json() : [])
+          .catch(() => [])
+      );
+    }
+
+    const results = await Promise.all(promises);
+    
     const events: Event[] = [];
 
-    if (deathsResult.status === 'fulfilled' && deathsResult.value.ok) {
-      const deaths = await deathsResult.value.json();
-      if (Array.isArray(deaths)) events.push(...deaths);
-    }
+    // Process standard endpoints
+    if (Array.isArray(results[0])) events.push(...results[0]); // Deaths
+    if (Array.isArray(results[1])) events.push(...results[1]); // Kills
+    if (Array.isArray(results[2])) events.push(...results[2]); // Top
+    if (Array.isArray(results[3])) events.push(...results[3]); // Solo
 
-    if (killsResult.status === 'fulfilled' && killsResult.value.ok) {
-      const recentKills = await killsResult.value.json();
-      if (Array.isArray(recentKills)) events.push(...recentKills);
-    }
-
-    if (topKillsResult.status === 'fulfilled' && topKillsResult.value.ok) {
-      const kills = await topKillsResult.value.json();
-      if (Array.isArray(kills)) events.push(...kills);
-    }
-
-    if (soloKillsResult.status === 'fulfilled' && soloKillsResult.value.ok) {
-      const solo = await soloKillsResult.value.json();
-      if (Array.isArray(solo)) events.push(...solo);
+    // Process Guild Events (Filter for current player)
+    if (guildId && Array.isArray(results[4])) {
+      const guildEvents = results[4].filter((e: any) => 
+        e.Killer.Id === playerId || 
+        e.Victim.Id === playerId || 
+        (e.Participants && e.Participants.some((p: any) => p.Id === playerId))
+      );
+      console.log(`[API] Found ${guildEvents.length} extra events via Guild feed`);
+      events.push(...guildEvents);
     }
 
     // 3. Deduplicate (by EventId) & Sort

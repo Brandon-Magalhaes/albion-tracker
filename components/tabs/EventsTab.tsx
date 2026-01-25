@@ -63,16 +63,24 @@ export default function EventsTab({
       <EventList events={filteredEvents} currentPlayerName={currentPlayerName} />
       
       {/* Load More Button */}
-      <div className="flex justify-center mt-8">
-        <button
-          onClick={onLoadMore}
-          disabled={loading || !hasMore}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-white transition-all"
-        >
-          {loading ? 'Carregando...' : 'Carregar Mais'}
-          {!loading && <ArrowDown size={18} />}
-        </button>
-      </div>
+      {hasMore ? (
+        <div className="flex justify-center mt-8">
+          <button
+            onClick={onLoadMore}
+            disabled={loading}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-white transition-all"
+          >
+            {loading ? 'Carregando...' : 'Carregar Mais'}
+            {!loading && <ArrowDown size={18} />}
+          </button>
+        </div>
+      ) : (
+        events.length > 0 && (
+          <div className="text-center mt-8 text-gray-500 italic">
+            Não há mais eventos recentes para carregar.
+          </div>
+        )
+      )}
     </div>
   );
 }

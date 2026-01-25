@@ -98,7 +98,7 @@ export default function PlayerView({ name }: { name: string }) {
                   currentPlayerName={name} 
                   loading={loading}
                   onLoadMore={handleLoadMore}
-                  hasMore={events.length >= LIMIT}
+                  hasMore={hasMore}
                 />
               )}
 

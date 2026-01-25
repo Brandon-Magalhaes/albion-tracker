@@ -30,7 +30,7 @@ export default function PerformanceCard({ events, playerName }: PerformanceCardP
       {/* Header */}
       <div className="flex items-center gap-2 mb-6 text-gray-400 uppercase text-xs font-bold tracking-wider">
         <Activity size={16} className="text-blue-500" />
-        <span>Performance (Últimos {events.length})</span>
+        <span>Performance (Últimos {kills + deaths})</span>
       </div>
 
       <div className="flex items-center justify-between">
