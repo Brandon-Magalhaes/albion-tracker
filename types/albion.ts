@@ -65,7 +65,9 @@ export interface SearchResult {
     Id: string;
     Name: string;
     GuildName: string;
+    GuildId?: string;
     AllianceName: string;
+    AllianceId?: string;
   }[];
   guilds: {
     Id: string;

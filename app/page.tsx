@@ -1,7 +1,6 @@
 import SearchForm from '@/components/SearchForm';
 import TrendingPvP from '@/components/TrendingPvP';
 import { Sword, Map, TrendingUp, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
 
 export default function Home() {
   return (

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Event } from '@/types/albion';
-import { Sword, Skull, Clock, MapPin, Loader2, RefreshCw } from 'lucide-react';
+import { Sword, Skull, Clock, MapPin, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 

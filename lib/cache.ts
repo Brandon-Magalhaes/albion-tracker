@@ -6,10 +6,10 @@ type CacheEntry<T> = {
 // Singleton pattern for global cache in Next.js dev environment
 // to prevent clearing on hot reloads
 const globalForCache = global as unknown as {
-  albionCache: Map<string, CacheEntry<any>>;
+  albionCache: Map<string, CacheEntry<unknown>>;
 };
 
-export const memoryCache = globalForCache.albionCache || new Map<string, CacheEntry<any>>();
+export const memoryCache = globalForCache.albionCache || new Map<string, CacheEntry<unknown>>();
 
 if (process.env.NODE_ENV !== 'production') globalForCache.albionCache = memoryCache;
 
@@ -22,7 +22,7 @@ export function getCached<T>(key: string): T | null {
     memoryCache.delete(key);
     return null;
   }
-  return entry.data;
+  return entry.data as T;
 }
 
 export function setCached<T>(key: string, data: T, ttlMs: number = CACHE_TTL): void {

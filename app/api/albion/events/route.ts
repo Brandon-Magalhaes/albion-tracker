@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 
   // We keep a short in-memory cache to prevent spamming the API on rapid reloads,
   // but the upstream fetch MUST be fresh.
-  const cacheKey = `events_v6_${player}_${limit}_${offset}`;
+  const cacheKey = `events_v7_${player}_${limit}_${offset}`;
   
   // Try cache first
   const cached = getCached<Event[]>(cacheKey);
@@ -66,46 +66,52 @@ export async function GET(request: Request) {
     }
 
     const playerId = foundPlayer.Id;
-    const guildId = foundPlayer.GuildId;
+    let guildId = foundPlayer.GuildId;
+    let allianceId = foundPlayer.AllianceId;
 
-    // Fetch in parallel
-    // We combine standard player endpoints (limited to 10) with Guild Events (if available) to get more history.
-    
-    const promises: Promise<any>[] = [
+    const profileRes = await fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}`);
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      guildId = profile.GuildId || guildId;
+      allianceId = profile.AllianceId || allianceId;
+    }
+
+    const [deaths, kills, topKills, soloKills, guildEventsRaw, allianceEventsRaw] = await Promise.all([
       fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
       fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/kills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
       fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/topkills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/solokills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => [])
-    ];
-
-    if (guildId) {
-      // Fetch recent guild events (limit 100 to maximize chance of finding player events)
-      promises.push(
-        fetchWithTimeout(`${ALBION_API_BASE}/events?guildId=${guildId}&limit=100`)
-          .then(r => r.ok ? r.json() : [])
-          .catch(() => [])
-      );
-    }
-
-    const results = await Promise.all(promises);
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/solokills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      guildId
+        ? fetchWithTimeout(`${ALBION_API_BASE}/events?guildId=${guildId}&limit=100`).then(r => r.ok ? r.json() : []).catch(() => [])
+        : Promise.resolve([]),
+      allianceId
+        ? fetchWithTimeout(`${ALBION_API_BASE}/events?allianceId=${allianceId}&limit=100`).then(r => r.ok ? r.json() : []).catch(() => [])
+        : Promise.resolve([])
+    ]);
     
     const events: Event[] = [];
 
-    // Process standard endpoints
-    if (Array.isArray(results[0])) events.push(...results[0]); // Deaths
-    if (Array.isArray(results[1])) events.push(...results[1]); // Kills
-    if (Array.isArray(results[2])) events.push(...results[2]); // Top
-    if (Array.isArray(results[3])) events.push(...results[3]); // Solo
+    if (Array.isArray(deaths)) events.push(...deaths);
+    if (Array.isArray(kills)) events.push(...kills);
+    if (Array.isArray(topKills)) events.push(...topKills);
+    if (Array.isArray(soloKills)) events.push(...soloKills);
 
-    // Process Guild Events (Filter for current player)
-    if (guildId && Array.isArray(results[4])) {
-      const guildEvents = results[4].filter((e: any) => 
+    if (Array.isArray(guildEventsRaw)) {
+      const guildEvents = (guildEventsRaw as Event[]).filter((e: Event) => 
         e.Killer.Id === playerId || 
         e.Victim.Id === playerId || 
-        (e.Participants && e.Participants.some((p: any) => p.Id === playerId))
+        (e.Participants && e.Participants.some((p) => p.Id === playerId))
       );
-      console.log(`[API] Found ${guildEvents.length} extra events via Guild feed`);
       events.push(...guildEvents);
+    }
+
+    if (Array.isArray(allianceEventsRaw)) {
+      const allianceEvents = (allianceEventsRaw as Event[]).filter((e: Event) => 
+        e.Killer.Id === playerId || 
+        e.Victim.Id === playerId || 
+        (e.Participants && e.Participants.some((p) => p.Id === playerId))
+      );
+      events.push(...allianceEvents);
     }
 
     // 3. Deduplicate (by EventId) & Sort
