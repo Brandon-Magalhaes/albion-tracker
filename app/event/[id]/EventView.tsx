@@ -15,13 +15,26 @@ export default function EventView({ id }: { id: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const playerName = searchParams.get('player');
+  const otherPlayer = searchParams.get('otherPlayer');
+  const fallbackPlayer = searchParams.get('fallbackPlayer');
+  const fallbackKiller = searchParams.get('fallbackKiller');
 
   useEffect(() => {
     const fetchEvent = async () => {
       try {
         let url = `/api/albion/event/${id}`;
+        const query = new URLSearchParams();
         if (playerName) {
-          url += `?player=${encodeURIComponent(playerName)}`;
+          query.set('player', playerName);
+          if (otherPlayer) query.set('otherPlayer', otherPlayer);
+        } else {
+          if (fallbackPlayer) query.set('player', fallbackPlayer);
+          if (fallbackKiller) query.set('otherPlayer', fallbackKiller);
+        }
+
+        const queryString = query.toString();
+        if (queryString) {
+          url += `?${queryString}`;
         }
         
         const res = await fetch(url);
@@ -35,7 +48,7 @@ export default function EventView({ id }: { id: string }) {
       }
     };
     fetchEvent();
-  }, [id, playerName]);
+  }, [id, playerName, otherPlayer, fallbackPlayer, fallbackKiller]);
 
   if (loading) return <div className="flex justify-center items-center h-screen bg-gray-900 text-white"><Loader2 className="animate-spin" /></div>;
   if (error || !event) return <div className="flex justify-center items-center h-screen bg-gray-900 text-red-400">{error || 'Erro desconhecido'}</div>;

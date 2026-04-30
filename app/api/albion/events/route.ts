@@ -127,6 +127,10 @@ export async function GET(request: Request) {
     // Note: Since we are merging two sources, offset/limit is applied in memory after fetching recent history
     const paginated = uniqueEvents.slice(offset, offset + limit);
 
+    for (const event of paginated) {
+      setCached(`event_detail_${event.EventId}`, event, 60 * 1000);
+    }
+
     // 5. Cache
     setCached(cacheKey, paginated, 60 * 1000);
 

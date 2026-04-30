@@ -3,8 +3,8 @@ import "./globals.css";
 import Header from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "Albion API",
-  description: "Albion API is a RESTful API that provides data about the Albion Online game.",
+  title: "Albion Tracker",
+  description: "Acompanhe kills, deaths, builds, zonas e performance PvP de jogadores de Albion Online.",
 };
 
 export default function RootLayout({
@@ -13,9 +13,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-  cz-shortcut-listen="true" className="bg-gray-900 min-h-screen flex flex-col">
+    <html lang="pt-BR">
+      <body suppressHydrationWarning className="bg-gray-900 min-h-screen flex flex-col">
         <Header />
         <main className="flex-1">
           {children}

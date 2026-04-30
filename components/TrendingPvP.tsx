@@ -16,19 +16,22 @@ export default function TrendingPvP() {
     setLoading(true);
     setError(false);
     try {
-      // Fetching from a public Albion API endpoint for recent events
-      // Since we don't have a backend route for 'global' events yet, we use a direct proxy or existing route
-      // For this demo, we'll try to use a known high-volume endpoint via our proxy if available, 
-      // or client-side fetch if CORS allows. 
-      // NOTE: Albion API /events requires no auth but has CORS. 
-      // We will use a Next.js API route to proxy this to avoid CORS issues.
-      
-      const res = await fetch('/api/albion/events/global?limit=10');
-      if (!res.ok) throw new Error('Failed to fetch');
+      const res = await fetch('/api/albion/events/global?limit=10', { cache: 'no-store' });
+      if (!res.ok) {
+        setEvents([]);
+        setError(true);
+        return;
+      }
+
       const data = await res.json();
+      if (!Array.isArray(data)) {
+        setEvents([]);
+        setError(true);
+        return;
+      }
+
       setEvents(data);
-    } catch (err) {
-      console.error(err);
+    } catch {
       setError(true);
     } finally {
       setLoading(false);
@@ -79,7 +82,7 @@ export default function TrendingPvP() {
         <div className="grid grid-cols-1 gap-3">
           {events.map((event) => (
             <Link 
-              href={`/event/${event.EventId}`} 
+              href={`/event/${event.EventId}?fallbackPlayer=${encodeURIComponent(event.Victim.Name)}&fallbackKiller=${encodeURIComponent(event.Killer.Name)}`}
               key={event.EventId}
               className="group bg-gray-800 hover:bg-gray-750 border border-gray-700 hover:border-gray-600 rounded-xl p-4 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
             >

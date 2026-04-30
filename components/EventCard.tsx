@@ -16,6 +16,7 @@ export default function EventCard({ event, playerName }: EventCardProps) {
   const role = isKiller ? 'Killer' : 'Victim';
   const borderColor = isKiller ? 'border-green-600/50' : 'border-red-600/50';
   const bgColor = isKiller ? 'bg-green-900/10' : 'bg-red-900/10';
+  const otherPlayerName = isKiller ? event.Victim.Name : event.Killer.Name;
 
   return (
     <div 
@@ -70,7 +71,11 @@ export default function EventCard({ event, playerName }: EventCardProps) {
       {/* Link to Details */}
       <div className="absolute top-2 right-2 z-20 md:static md:flex md:items-center">
          <button 
-          onClick={() => router.push(`/event/${event.EventId}?player=${encodeURIComponent(playerName)}`)}
+          onClick={() =>
+            router.push(
+              `/event/${event.EventId}?player=${encodeURIComponent(playerName)}&otherPlayer=${encodeURIComponent(otherPlayerName)}`
+            )
+          }
           className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
         >
           Detalhes
