@@ -9,6 +9,7 @@ interface EventsTabProps {
   loading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
+  totalCount: number;
 }
 
 export default function EventsTab({ 
@@ -16,7 +17,8 @@ export default function EventsTab({
   currentPlayerName, 
   loading, 
   onLoadMore,
-  hasMore
+  hasMore,
+  totalCount
 }: EventsTabProps) {
   const [filter, setFilter] = useState<'all' | 'kills' | 'deaths'>('all');
 
@@ -61,6 +63,12 @@ export default function EventsTab({
       {loading && events.length === 0 && <div className="text-center py-10 text-blue-400">Carregando eventos...</div>}
       
       <EventList events={filteredEvents} currentPlayerName={currentPlayerName} />
+
+      {filter === 'all' && totalCount > 0 && (
+        <div className="mt-4 text-center text-sm text-gray-400">
+          Mostrando {events.length} de {totalCount} eventos recentes.
+        </div>
+      )}
       
       {/* Load More Button */}
       {hasMore ? (

@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 
   // We keep a short in-memory cache to prevent spamming the API on rapid reloads,
   // but the upstream fetch MUST be fresh.
-  const cacheKey = `events_v8_${player}_${limit}_${offset}`;
+  const cacheKey = `events_v7_${player}_${limit}_${offset}`;
   
   // Try cache first
   const cached = getCached<Event[]>(cacheKey);
@@ -66,25 +66,57 @@ export async function GET(request: Request) {
     }
 
     const playerId = foundPlayer.Id;
-    const historyWindow = Math.max(limit + offset, 20);
+    let guildId = foundPlayer.GuildId;
+    let allianceId = foundPlayer.AllianceId;
 
-    const [deaths, kills] = await Promise.all([
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths?limit=${historyWindow}`)
-        .then(r => r.ok ? r.json() : [])
-        .catch(() => []),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/kills?limit=${historyWindow}`)
-        .then(r => r.ok ? r.json() : [])
-        .catch(() => []),
+    const profileRes = await fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}`);
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      guildId = profile.GuildId || guildId;
+      allianceId = profile.AllianceId || allianceId;
+    }
+
+    const [deaths, kills, topKills, soloKills, guildEventsRaw, allianceEventsRaw] = await Promise.all([
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/kills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/topkills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/solokills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      guildId
+        ? fetchWithTimeout(`${ALBION_API_BASE}/events?guildId=${guildId}&limit=100`).then(r => r.ok ? r.json() : []).catch(() => [])
+        : Promise.resolve([]),
+      allianceId
+        ? fetchWithTimeout(`${ALBION_API_BASE}/events?allianceId=${allianceId}&limit=100`).then(r => r.ok ? r.json() : []).catch(() => [])
+        : Promise.resolve([])
     ]);
     
     const events: Event[] = [];
 
     if (Array.isArray(deaths)) events.push(...deaths);
     if (Array.isArray(kills)) events.push(...kills);
+    if (Array.isArray(topKills)) events.push(...topKills);
+    if (Array.isArray(soloKills)) events.push(...soloKills);
+
+    if (Array.isArray(guildEventsRaw)) {
+      const guildEvents = (guildEventsRaw as Event[]).filter((e: Event) => 
+        e.Killer.Id === playerId || 
+        e.Victim.Id === playerId || 
+        (e.Participants && e.Participants.some((p) => p.Id === playerId))
+      );
+      events.push(...guildEvents);
+    }
+
+    if (Array.isArray(allianceEventsRaw)) {
+      const allianceEvents = (allianceEventsRaw as Event[]).filter((e: Event) => 
+        e.Killer.Id === playerId || 
+        e.Victim.Id === playerId || 
+        (e.Participants && e.Participants.some((p) => p.Id === playerId))
+      );
+      events.push(...allianceEvents);
+    }
+
     // 3. Deduplicate (by EventId) & Sort
     const uniqueEvents = Array.from(new Map(events.map(item => [item.EventId, item])).values());
     uniqueEvents.sort((a, b) => new Date(b.TimeStamp).getTime() - new Date(a.TimeStamp).getTime());
-
 
     // Debug logging to verify fresh data
     if (uniqueEvents.length > 0) {

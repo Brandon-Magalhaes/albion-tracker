@@ -17,7 +17,17 @@ export default function PlayerView({ name }: { name: string }) {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'events' | 'builds' | 'zones'>('events');
   const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const LIMIT = 20;
+
+  useEffect(() => {
+    setEvents([]);
+    setOffset(0);
+    setError('');
+    setHasMore(true);
+    setTotalCount(0);
+    setActiveTab('events');
+  }, [name]);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -29,17 +39,27 @@ export default function PlayerView({ name }: { name: string }) {
           if (res.status === 404 && offset === 0) throw new Error('Jogador não encontrado (ou sem eventos recentes).');
           if (res.status !== 404) throw new Error('Falha ao carregar eventos.');
         }
-        
+
+        const totalHeader = res.headers.get('X-Total-Count');
+        const nextTotalCount = totalHeader ? parseInt(totalHeader, 10) : 0;
         const data = await res.json();
-        
+
         if (Array.isArray(data)) {
-          if (data.length < LIMIT) setHasMore(false);
-          
+          if (Number.isFinite(nextTotalCount) && nextTotalCount > 0) {
+            setTotalCount(nextTotalCount);
+            setHasMore(offset + data.length < nextTotalCount);
+          } else {
+            setHasMore(data.length === LIMIT);
+          }
+
           setEvents(prev => {
             // Deduplicate logic when appending
             if (offset === 0) return data;
             const existingIds = new Set(prev.map(e => e.EventId));
             const newEvents = data.filter(e => !existingIds.has(e.EventId));
+            if (newEvents.length === 0) {
+              setHasMore(false);
+            }
             return [...prev, ...newEvents];
           });
         }
@@ -58,6 +78,7 @@ export default function PlayerView({ name }: { name: string }) {
   const memoizedEvents = useMemo(() => events, [events]);
 
   const handleLoadMore = () => {
+    if (loading || !hasMore) return;
     setOffset(prev => prev + LIMIT);
   };
 
@@ -99,6 +120,7 @@ export default function PlayerView({ name }: { name: string }) {
                   loading={loading}
                   onLoadMore={handleLoadMore}
                   hasMore={hasMore}
+                  totalCount={totalCount}
                 />
               )}
 
