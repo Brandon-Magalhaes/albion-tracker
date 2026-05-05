@@ -53,8 +53,12 @@ export async function GET(request: Request) {
     });
   }
 
+  // Also check if we have a "stale" cache for this player specifically to avoid 504
+  const staleKey = `stale_events_${player}`;
+  const staleData = getCached<Event[]>(staleKey);
+
+  // 1. Resolve Name -> ID and Profile in parallel if possible, but we need ID for the rest
   try {
-    // 1. Resolve Name -> ID
     const searchRes = await fetchWithTimeout(`${ALBION_API_BASE}/search?q=${encodeURIComponent(player)}`);
     if (!searchRes.ok) throw new Error('Search failed');
     const searchData: SearchResult = await searchRes.json();
@@ -66,26 +70,32 @@ export async function GET(request: Request) {
     }
 
     const playerId = foundPlayer.Id;
+    
+    // Fetch profile and initial events in parallel to save time
+    const [profileRes, deaths, kills, topKills, soloKills] = await Promise.all([
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}`).catch(() => null),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/kills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/topkills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/solokills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+    ]);
+
     let guildId = foundPlayer.GuildId;
     let allianceId = foundPlayer.AllianceId;
 
-    const profileRes = await fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}`);
-    if (profileRes.ok) {
+    if (profileRes && profileRes.ok) {
       const profile = await profileRes.json();
       guildId = profile.GuildId || guildId;
       allianceId = profile.AllianceId || allianceId;
     }
 
-    const [deaths, kills, topKills, soloKills, guildEventsRaw, allianceEventsRaw] = await Promise.all([
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/deaths?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/kills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/topkills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetchWithTimeout(`${ALBION_API_BASE}/players/${playerId}/solokills?limit=50`).then(r => r.ok ? r.json() : []).catch(() => []),
+    // Fetch guild and alliance events in parallel only if IDs exist
+    const [guildEventsRaw, allianceEventsRaw] = await Promise.all([
       guildId
-        ? fetchWithTimeout(`${ALBION_API_BASE}/events?guildId=${guildId}&limit=100`).then(r => r.ok ? r.json() : []).catch(() => [])
+        ? fetchWithTimeout(`${ALBION_API_BASE}/events?guildId=${guildId}&limit=50`).then(r => r.ok ? r.json() : []).catch(() => [])
         : Promise.resolve([]),
       allianceId
-        ? fetchWithTimeout(`${ALBION_API_BASE}/events?allianceId=${allianceId}&limit=100`).then(r => r.ok ? r.json() : []).catch(() => [])
+        ? fetchWithTimeout(`${ALBION_API_BASE}/events?allianceId=${allianceId}&limit=50`).then(r => r.ok ? r.json() : []).catch(() => [])
         : Promise.resolve([])
     ]);
     
@@ -133,6 +143,8 @@ export async function GET(request: Request) {
 
     // 5. Cache
     setCached(cacheKey, paginated, 60 * 1000);
+    // Save as stale backup (longer TTL)
+    setCached(staleKey, uniqueEvents, 30 * 60 * 1000); 
 
     return NextResponse.json(paginated, {
       headers: { 
@@ -143,7 +155,21 @@ export async function GET(request: Request) {
 
   } catch (error: unknown) {
     console.error('Events fetch error:', error);
-    const status = (error as Error).name === 'AbortError' ? 504 : 500;
+    const isTimeout = (error as Error).name === 'AbortError' || (error as Error).message.includes('timeout');
+    
+    // If timeout and we have stale data, return it instead of 504
+    if (isTimeout && staleData) {
+      console.log(`[API] Timeout for ${player}, returning stale data`);
+      const paginatedStale = staleData.slice(offset, offset + limit);
+      return NextResponse.json(paginatedStale, {
+        headers: { 
+          'X-Cache': 'STALE',
+          'X-Total-Count': staleData.length.toString()
+        },
+      });
+    }
+
+    const status = isTimeout ? 504 : 500;
     return NextResponse.json({ error: 'Failed to fetch events', details: (error as Error).message }, { status });
   }
 }
